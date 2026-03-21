@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  pg_db:
+    image: postgres:17
+    container_name: pg_db
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=${PG_PASSWORD}
+      - POSTGRES_USER=${PG_USER}
+      - POSTGRES_DB=${PG_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/create_schema.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - ${POSTGRES_PORT:-5432}:5432
+    shm_size: 128mb
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+        interval: 30s
+        timeout: 60s
+        retries: 5
+        start_period: 80s
+
+  minio_db:
+    image: minio/minio:latest
+    container_name: minio_db
+    restart: always
+    command: server /data --console-address ":9001"
+    ports:
+      - ${MINIO_API_PORT:-9000}:9000
+      - ${MINIO_PORT:-9001}:9001
+    environment:
+      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
+      - MINIO_ROOT_USER=${MINIO_USER}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  pg_data:
+  minio_data:
