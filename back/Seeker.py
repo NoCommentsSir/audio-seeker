@@ -47,17 +47,18 @@ def create_fingerprints(map, delta = 10, max_targets = 10):
             f2 = arr[peak + cnt][1] / upper_frequency * (2 ** frequency_bits)
             dt = arr[peak + cnt][0] - arr[peak][0]
             code = int(f1) | (int(f2) << 10) | (int(dt) << 20)
-            total.append([code, arr[peak][0]])
+            total.append([code, int(arr[peak][0])])
             cnt += 1
 
     return total
 
-Fs, song = read("Eve_-_Kaikai_Kitan_(SkySound.cc).wav")
-arr = create_map(song, Fs)
-plt.scatter([i[0] for i in arr], [i[1] for i in arr])
-plt.show()
-conn = psycopg.connect(dbname='tracks', user='seeker', password='secret_pass', host='localhost')
-cr = conn.cursor()
-cr.execute("SELECT * FROM sounds.tracks;")
-print(cr.fetchall()[0][0])
-res = create_fingerprints(arr)
+if __name__ == '__main__':
+    Fs, song = read("Eve_-_Kaikai_Kitan_(SkySound.cc).wav")
+    arr = create_map(song, Fs)
+    plt.scatter([i[0] for i in arr], [i[1] for i in arr])
+    plt.show()
+    conn = psycopg.connect(dbname='tracks', user='seeker', password='secret_pass', host='localhost')
+    cr = conn.cursor()
+    cr.execute("SELECT * FROM sounds.tracks;")
+    print(cr.fetchall()[0][0])
+    res = create_fingerprints(arr)

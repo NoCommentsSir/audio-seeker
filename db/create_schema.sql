@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS  sounds.tracks(
 );
 
 CREATE TABLE IF NOT EXISTS  sounds.track_fingerprints(
+    fingerprint_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     track_id int,
     hash_code int,
     anchor_time int,
