@@ -40,3 +40,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_minio_client() -> Minio:
+    return minio_client
+
+if __name__ == '__main__':
+    pass
