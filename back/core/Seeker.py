@@ -1,21 +1,30 @@
-import numpy as np
-from scipy.io.wavfile import read
-from scipy import signal 
+import time
 from pathlib import Path
 
-from back.db.database import SessionLocal
-from back.db.models import Track_Fingerprint, Track
+import numpy as np
+from scipy import signal
 
 
 BASE_DIR = Path(__file__).resolve().parent
 TRACKS_DIR = BASE_DIR.parent.parent / 'tracks'
 
-def create_map(audio, Fs):
+class ProcessingDeadlineExceeded(RuntimeError):
+    """Raised when fingerprint processing exceeds the configured deadline."""
+
+
+def _check_deadline(deadline: float | None) -> None:
+    if deadline is not None and time.monotonic() >= deadline:
+        raise ProcessingDeadlineExceeded("Processing exceeded the allowed time limit.")
+
+
+def create_map(audio, Fs, deadline: float | None = None):
+    _check_deadline(deadline)
+
     # Конфиги
     window_length_seconds = 0.5
     window_length_samples = int(window_length_seconds * Fs)
     window_length_samples += window_length_samples % 2
-    amount_to_pad = window_length_samples - audio.size % window_length_samples
+    amount_to_pad = (window_length_samples - audio.size % window_length_samples) % window_length_samples
     num_peaks = 10
 
     # Преобразование Фурье
@@ -26,24 +35,36 @@ def create_map(audio, Fs):
 
     res = []
     for j in range(arr.shape[1]):
+        if j % 25 == 0:
+            _check_deadline(deadline)
         real = abs(arr[:, j])
         peaks, props = signal.find_peaks(real, prominence=0.01, distance=50)
         N = min(num_peaks, len(peaks))
+        if N == 0:
+            continue
 
         # По топ N максимальным пикам строим карту
         largest_peaks = np.argpartition(props["prominences"], -N)[-N:]
         for peak in peaks[largest_peaks]:
             freq = freqs[peak]
             res.append([j, freq])
+    if not res:
+        return np.empty((0, 2))
     return np.array(res)
 
-def create_fingerprints(map, delta = 10, max_targets = 10):
-    arr = map[map[:,0].argsort()]
+def create_fingerprints(map, delta=10, max_targets=10, deadline: float | None = None):
+    if map.size == 0:
+        return []
+
+    _check_deadline(deadline)
+    arr = map[map[:, 0].argsort()]
     upper_frequency = 23000 
     frequency_bits = 10
     total = []
 
     for peak in range(len(arr)):
+        if peak % 100 == 0:
+            _check_deadline(deadline)
         cnt = 1
         while peak + cnt < len(arr) and cnt <= max_targets and arr[peak + cnt][0] - arr[peak][0] < delta:
             f1 = arr[peak][1] / upper_frequency * (2 ** frequency_bits)

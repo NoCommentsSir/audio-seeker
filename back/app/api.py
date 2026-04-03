@@ -1,73 +1,231 @@
-from fastapi import FastAPI, Depends, Query, HTTPException, status, UploadFile, File
-from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
-from sqlalchemy import func, delete
-from minio import Minio
-from dotenv import load_dotenv
+import os
+from typing import Annotated
 
-from ..db.database import *
-from ..db.models import Track
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from minio import Minio
+from sqlalchemy.orm import Session
+
+from ..core.services import (
+    TrackPersistenceError,
+    TrackServiceError,
+    TrackStorageError,
+    TrackValidationError,
+    create_track,
+    delete_track,
+    list_tracks,
+    search_track,
+)
+from ..db.database import MINIO_BUCKET_NAME, get_db, get_minio_client
+from .schemas import SearchMode, TrackListResponse, TrackResponse, TrackSearchResponse, TrackSearchResult
 
 
 load_dotenv()
-MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "localhost")
-api = FastAPI()
+
+
+def _load_cors_origins() -> list[str]:
+    origins = os.getenv("CORS_ALLOWED_ORIGINS")
+    if origins:
+        return [origin.strip() for origin in origins.split(",") if origin.strip()]
+
+    return [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+
+api = FastAPI(title="Audioseeker API")
+api.add_middleware(
+    CORSMiddleware,
+    allow_origins=_load_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def _read_upload_bytes(file: UploadFile) -> bytes:
+    try:
+        file.file.seek(0)
+        return file.file.read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to read the uploaded file.",
+        ) from exc
+
+
+def _to_track_response(track) -> TrackResponse:
+    return TrackResponse(
+        track_id=track.track_id,
+        track_name=track.track_name,
+        track_author=track.track_author,
+        track_minio_key=str(track.track_minio_key),
+    )
+
+
+def _build_search_response(outcome, mode: SearchMode) -> TrackSearchResponse:
+    if outcome.match is None:
+        message = "Search timed out. No result." if outcome.timed_out else "No result"
+        if mode == "approximate" and outcome.timed_out:
+            message = "Search timed out. No result."
+        return TrackSearchResponse(
+            matched=False,
+            mode=mode,
+            is_exact=False,
+            timed_out=outcome.timed_out,
+            message=message,
+            result=None,
+        )
+
+    if outcome.timed_out:
+        message = "Search timed out. Returning the best match found so far."
+    elif outcome.is_exact:
+        message = "Track matched"
+    else:
+        message = "No exact match. Here is the closest match in our database"
+
+    result = TrackSearchResult(
+        track_id=outcome.match.track_id,
+        track_name=outcome.match.track_name,
+        track_author=outcome.match.track_author,
+        track_minio_key=outcome.match.track_minio_key,
+        matches=outcome.match.matches,
+        time_offset=outcome.match.time_offset,
+    )
+
+    return TrackSearchResponse(
+        matched=True,
+        mode=mode,
+        is_exact=outcome.is_exact,
+        timed_out=outcome.timed_out,
+        message=message,
+        result=result,
+    )
+
 
 @api.get("/")
 def read_root():
-    html_content = "<h2>Hello!</h2>"
-    return HTMLResponse(content=html_content)
+    return HTMLResponse(content="<h2>Hello!</h2>")
 
-@api.get("/api/tracks")
+
+@api.get("/api/tracks", response_model=TrackListResponse)
 def get_tracks(
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
-    db: Session = Depends(get_db)
+    query: str | None = Query(None),
+    db: Session = Depends(get_db),
 ):
-    tracks = db.query(Track).offset(skip).limit(limit).all()
-    total = db.query(func.count(Track.track_id)).scalar()
+    tracks, total = list_tracks(db, skip=skip, limit=limit, query=query)
 
-    return {
-        "items": tracks,
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-        "has_more": skip + limit < total
-    }
+    return TrackListResponse(
+        items=[_to_track_response(track) for track in tracks],
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=skip + limit < total,
+    )
+
 
 @api.delete("/api/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_track(
-    id: int,
+def remove_track(
+    track_id: int,
     db: Session = Depends(get_db),
-    minio: Minio = Depends(get_minio_client)
+    minio: Minio = Depends(get_minio_client),
 ):
-    track = db.query(Track).filter(Track.track_id == id).first()
-
-    if not track:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="Трек не найден"
-        )
-    
     try:
-        obj_name = f'{track.track_minio_key}.wav'
-        minio.remove_object(MINIO_BUCKET_NAME, obj_name)
-        db.delete(track)
-        db.commit()
-        return None
-    except Exception as e:
-        db.rollback()
+        deleted = delete_track(db, minio, MINIO_BUCKET_NAME, track_id)
+    except TrackStorageError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при удалении: {str(e)}"
+            detail=str(exc),
+        ) from exc
+    except TrackPersistenceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Track not found.",
         )
-    
-@api.post("/api/tracks", status_code=status.HTTP_202_ACCEPTED)
+
+    return None
+
+
+@api.post(
+    "/api/tracks",
+    response_model=TrackResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def insert_track(
-    file: UploadFile,
-    author: str,
-    name: str,
+    file: Annotated[UploadFile, File(...)],
+    name: Annotated[str, Form(...)],
+    author: Annotated[str | None, Form(None)] = None,
     db: Session = Depends(get_db),
-    minio: Minio = Depends(get_minio_client)
+    minio: Minio = Depends(get_minio_client),
 ):
-    pass
+    file_bytes = _read_upload_bytes(file)
+
+    try:
+        track = create_track(
+            db,
+            minio,
+            MINIO_BUCKET_NAME,
+            file_bytes=file_bytes,
+            filename=file.filename,
+            name=name,
+            author=author,
+        )
+    except TrackValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except (TrackStorageError, TrackPersistenceError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+    except TrackServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    return _to_track_response(track)
+
+
+@api.post("/api/tracks/search", response_model=TrackSearchResponse)
+def find_track_by_audio(
+    file: Annotated[UploadFile, File(...)],
+    mode: Annotated[SearchMode, Form(...)],
+    db: Session = Depends(get_db),
+):
+    file_bytes = _read_upload_bytes(file)
+
+    try:
+        outcome = search_track(
+            db,
+            file_bytes=file_bytes,
+            filename=file.filename,
+            mode=mode,
+        )
+    except TrackValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except TrackServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    return _build_search_response(outcome, mode)

@@ -1,5 +1,6 @@
 import dotenv
 import os
+
 from minio import Minio
 from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import sessionmaker
@@ -14,6 +15,7 @@ PG_PASS = os.getenv("PG_PASSWORD", "password")
 PG_PORT = os.getenv("POSTGRES_PORT", "5432")
 PG_HOST = os.getenv("PG_HOST", "localhost")
 PG_DB = os.getenv("PG_DB", "postgres")
+MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "tracks")
 
 minio_client = Minio(
     endpoint=MINIO_HOST + ":" + MINIO_PORT,
