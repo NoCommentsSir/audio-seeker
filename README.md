@@ -30,7 +30,7 @@
 
 ### Дополнительно
 
-Для корректной работы необходимо в корне сохдать файл .env со следующим содержимым
+Для корректной работы необходимо в корне создать файл `.env` со следующим содержимым
 PG_USER, PG_PASSWORD, PG_DB, PG_HOST, POSTGRES_PORT, MINIO_API_PORT, MINIO_PORT, MINIO_USER, MINIO_PASSWORD, MINIO_HOST, MINIO_BUCKET_NAME
 
 ### ToDo
