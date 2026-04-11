@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Depends, Query, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, Depends, Query, HTTPException, status #, UploadFile, File
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, delete
 from minio import Minio
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
 
 from ..db.database import *
 from ..db.models import Track
@@ -12,6 +13,14 @@ from ..db.models import Track
 load_dotenv()
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "localhost")
 api = FastAPI()
+
+api.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @api.get("/")
 def read_root():
