@@ -167,7 +167,7 @@ def remove_track(
 def insert_track(
     file: Annotated[UploadFile, File(...)],
     name: Annotated[str, Form(...)],
-    author: Annotated[str | None, Form(None)] = None,
+    author: Annotated[str | None, Form()] = None,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
 ):

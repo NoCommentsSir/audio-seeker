@@ -5,6 +5,15 @@ from minio import Minio
 from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import sessionmaker
 
+import logging
+
+# Базовая настройка формата логов (если ещё нет)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+)
+
+logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)
 dotenv.load_dotenv()
 MINIO_USER = os.getenv("MINIO_USER", "admin")
 MINIO_PASS = os.getenv("MINIO_PASSWORD", "password")
