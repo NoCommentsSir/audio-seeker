@@ -1,9 +1,19 @@
 import dotenv
 import os
+
 from minio import Minio
 from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import sessionmaker
 
+import logging
+
+# Базовая настройка формата логов (если ещё нет)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+)
+
+logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)
 dotenv.load_dotenv()
 MINIO_USER = os.getenv("MINIO_USER", "admin")
 MINIO_PASS = os.getenv("MINIO_PASSWORD", "password")
@@ -14,6 +24,7 @@ PG_PASS = os.getenv("PG_PASSWORD", "password")
 PG_PORT = os.getenv("POSTGRES_PORT", "5432")
 PG_HOST = os.getenv("PG_HOST", "localhost")
 PG_DB = os.getenv("PG_DB", "postgres")
+MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "tracks")
 
 minio_client = Minio(
     endpoint=MINIO_HOST + ":" + MINIO_PORT,

@@ -11,7 +11,7 @@ class Track(Base):
     track_author = Column(String)
     track_minio_key = Column(UUID)
 
-    fingerprints = relationship("Track_Fingerprint", back_populates="track")
+    fingerprints = relationship("Track_Fingerprint", back_populates="track", passive_deletes=True)
 
 class Track_Fingerprint(Base):
     __tablename__ = "track_fingerprints"
