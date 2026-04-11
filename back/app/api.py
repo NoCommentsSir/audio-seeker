@@ -108,6 +108,14 @@ def _build_search_response(outcome, mode: SearchMode) -> TrackSearchResponse:
     )
 
 
+api.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @api.get("/")
 def read_root():
     return HTMLResponse(content="<h2>Hello!</h2>")
