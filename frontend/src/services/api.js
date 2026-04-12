@@ -1,34 +1,58 @@
-// src/services/api.js
-import axios from 'axios';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000', // Адрес твоего FastAPI
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Методы для работы с треками
 export const trackAPI = {
-  // Загрузить трек (админка)
-//   uploadTrack: (formData) => 
-//     api.post('/api/tracks', formData, {
-//       headers: { 'Content-Type': 'multipart/form-data' },
-//     }),
-  
-  // Получить список треков с пагинацией
-  getTracks: (skip = 0, limit = 10) => 
-    api.get(`/api/tracks?skip=${skip}&limit=${limit}`),
-  
-  // Удалить трек
-  deleteTrack: (trackId) => 
-    api.delete(`/api/tracks/${trackId}`),
-  
-  // Распознать аудио (основная фича!)
-//   recognize: (formData) => 
-//     api.post('/api/recognize', formData, {
-//       headers: { 'Content-Type': 'multipart/form-data' },
-//     }),
-};
+  getTracks: async (skip = 0, limit = 10, query = '') => {
+    const params = new URLSearchParams({ skip, limit });
+    if (query) params.append('query', query);
+    const res = await fetch(`${API_BASE}/api/tracks?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch tracks');
+    return res.json();
+  },
 
-export default api;
+  deleteTrack: async (trackId) => {
+    const res = await fetch(`${API_BASE}/api/tracks/${trackId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('Track not found');
+      throw new Error('Failed to delete track');
+    }
+    return true;
+  },
+
+  uploadTrack: async (file, name, author = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', name);
+    if (author) formData.append('author', author);
+    
+    const res = await fetch(`${API_BASE}/api/tracks`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to upload track');
+    }
+    return res.json();
+  },
+
+  searchTrack: async (file, mode = 'exact') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', mode);
+    
+    const res = await fetch(`${API_BASE}/api/tracks/search`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Search failed');
+    }
+    return res.json();
+  },
+
+  getTrackStreamUrl: (trackId) => {
+    return `${API_BASE}/api/tracks/${trackId}/stream`;
+  },
+
+};

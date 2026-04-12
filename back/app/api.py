@@ -4,8 +4,9 @@ from typing import Annotated
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from minio import Minio
+from minio.error import S3Error
 from sqlalchemy.orm import Session
 
 from ..core.services import (
@@ -237,3 +238,38 @@ def find_track_by_audio(
         ) from exc
 
     return _build_search_response(outcome, mode)
+
+@api.get("/api/tracks/{track_id}/stream")
+def stream_track(
+    track_id: int,
+    db: Session = Depends(get_db),
+    minio: Minio = Depends(get_minio_client),
+):
+    """Отдаёт аудиофайл из MinIO с поддержкой range-запросов (для перемотки)"""
+    from ..core.services import get_track_by_id
+    
+    track = get_track_by_id(db, track_id)
+    print(track)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    
+    # Получаем объект из MinIO
+    try:
+        obj = minio.get_object(
+            bucket_name=MINIO_BUCKET_NAME,
+            object_name=str(track.track_minio_key) + '.wav',
+        )
+        
+        # Определяем content-type по расширению
+        content_type = "audio/wav"
+        
+        return StreamingResponse(
+            obj,
+            media_type=content_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Disposition": f"inline; filename={track.track_name}.mp3"
+            }
+        )
+    except S3Error as e:
+        raise HTTPException(status_code=500, detail=f"MinIO error: {str(e)}")

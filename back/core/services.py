@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-
+from moviepy import AudioFileClip
 import numpy as np
 from minio import Minio
 from minio.error import S3Error
@@ -18,7 +18,7 @@ from ..db.models import Track, Track_Fingerprint
 from .Seeker import ProcessingDeadlineExceeded, create_fingerprints, create_map
 
 
-DEFAULT_MATCH_THRESHOLD = 5
+DEFAULT_MATCH_THRESHOLD = 500
 SEARCH_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
 SEARCH_MAX_DURATION_SECONDS = 10 * 60
 SEARCH_TIMEOUT_SECONDS = 30
@@ -117,6 +117,48 @@ def _validate_track_metadata(name: str, author: str | None) -> tuple[str, str | 
 
     return normalized_name, normalized_author
 
+import os
+import tempfile
+from pathlib import Path
+
+def convert_to_wav_bytes(file_bytes: bytes, original_filename: str | None) -> tuple[bytes, str]:
+    """Конвертирует аудио (WebM/MP3/OGG и др.) в WAV через moviepy."""
+    if original_filename and original_filename.lower().endswith(".wav"):
+        return file_bytes, original_filename
+
+    tmp_in_path = tmp_out_path = None
+    try:
+        # 1. Сохраняем входящие байты во временный файл
+        suffix = Path(original_filename).suffix if original_filename else ".bin"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_in:
+            tmp_in.write(file_bytes)
+            tmp_in_path = tmp_in.name
+
+        # 2. Создаём временный файл для WAV
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_out:
+            tmp_out_path = tmp_out.name
+
+        # 3. Конвертируем
+        clip = AudioFileClip(tmp_in_path)
+        # codec='pcm_s16le' → стандартный 16-bit PCM WAV
+        # fps=44100 → частота дискретизации (измените под ваш пайплайн)
+        clip.write_audiofile(tmp_out_path, codec="pcm_s16le", fps=44100, logger=None)
+        clip.close()
+
+        # 4. Читаем результат
+        with open(tmp_out_path, "rb") as f:
+            wav_bytes = f.read()
+
+        return wav_bytes, "converted_fragment.wav"
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to convert audio to WAV: {e}") from e
+
+    finally:
+        # Гарантированная очистка временных файлов
+        for path in (tmp_in_path, tmp_out_path):
+            if path and os.path.exists(path):
+                os.unlink(path)
 
 def _validate_search_limits(file_bytes: bytes, parsed_audio: ParsedAudio) -> None:
     if len(file_bytes) > SEARCH_MAX_FILE_SIZE_BYTES:
@@ -166,6 +208,12 @@ def list_tracks(
     total = stmt.count()
     tracks = stmt.order_by(Track.track_id.asc()).offset(skip).limit(limit).all()
     return tracks, total
+
+def get_track_by_id(
+    db: Session,
+    id: int
+) -> Track:
+    return db.query(Track).filter(Track.track_id == id).first()
 
 
 def _build_fingerprint_rows(
@@ -296,6 +344,9 @@ def search_track(
     matches_threshold: int = DEFAULT_MATCH_THRESHOLD,
     timeout_seconds: int = SEARCH_TIMEOUT_SECONDS,
 ) -> SearchOutcome:
+    if not filename or not filename.lower().endswith(".wav"):
+        file_bytes, filename = convert_to_wav_bytes(file_bytes, filename)
+
     _validate_wav_filename(filename)
     parsed_audio = _parse_wav_bytes(file_bytes)
     _validate_search_limits(file_bytes, parsed_audio)
