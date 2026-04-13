@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trackAPI } from '../services/api.js';
 import { adminAuth } from '../services/adminAuth.js';
-import './UploadDelete.css';
+import '../App.css';
 
 export default function UploadDelete() {
   const [file, setFile] = useState(null);
@@ -78,7 +78,7 @@ export default function UploadDelete() {
 
   const handleLogout = () => {
     adminAuth.clearToken();
-    navigate('/admin/login');
+    navigate('/');
   };
 
   return (
@@ -146,12 +146,21 @@ export default function UploadDelete() {
           {tracks.length === 0 ? (
             <p className="no-tracks">No tracks yet</p>
           ) : (
-            <div className="tracks-list">
+            <div className="track-list-items">
               {tracks.map((track) => (
-                <div key={track.track_id} className="track-item">
+                <div key={track.track_id} className="track-item glass">
                   <div className="track-info">
-                    <h3>{track.track_name}</h3>
-                    {track.track_author && <p className="author">{track.track_author}</p>}
+                    <span className="track-name" title={track.track_name}>
+                      {track.track_name}
+                    </span>
+                    <span className="track-separator">•</span>
+                    {track.track_author && (
+                      <>
+                        <span className="track-author" title={track.track_author}>
+                          {track.track_author}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <button
                     className="delete-btn"

@@ -1,7 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-// Import admin auth
 import { adminAuth } from './adminAuth.js';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const trackAPI = {
   getTracks: async (skip = 0, limit = 10, query = '') => {
