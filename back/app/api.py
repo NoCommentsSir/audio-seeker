@@ -2,7 +2,7 @@ import os
 from typing import Annotated
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from minio import Minio
@@ -19,8 +19,21 @@ from ..core.services import (
     list_tracks,
     search_track,
 )
+from ..core.admin_auth import (
+    authenticate_admin,
+    create_admin_token,
+    verify_admin_token,
+)
 from ..db.database import MINIO_BUCKET_NAME, get_db, get_minio_client
-from .schemas import SearchMode, TrackListResponse, TrackResponse, TrackSearchResponse, TrackSearchResult
+from .schemas import (
+    SearchMode,
+    TrackListResponse,
+    TrackResponse,
+    TrackSearchResponse,
+    TrackSearchResult,
+    AdminLoginRequest,
+    AdminTokenResponse,
+)
 
 
 load_dotenv()
@@ -37,6 +50,34 @@ def _load_cors_origins() -> list[str]:
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+
+
+async def verify_admin_token_header(authorization: str | None = Header(None)) -> bool:
+    """Extract and verify admin token from Authorization header."""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing",
+        )
+    
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise ValueError("Invalid authorization scheme")
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+        )
+    
+    payload = verify_admin_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired admin token",
+        )
+    
+    return True
 
 
 api = FastAPI(title="Audioseeker API")
@@ -117,6 +158,21 @@ api.add_middleware(
     allow_headers=["*"],
 )
 
+@api.post("/api/admin/login", response_model=AdminTokenResponse)
+def admin_login(request: AdminLoginRequest):
+    """Authenticate admin with password and return JWT token."""
+    if not authenticate_admin(request.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin password",
+        )
+    
+    access_token = create_admin_token()
+    return AdminTokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+    )
+
 @api.get("/")
 def read_root():
     return HTMLResponse(content="<h2>Hello!</h2>")
@@ -145,6 +201,7 @@ def remove_track(
     track_id: int,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
+    _: bool = Depends(verify_admin_token_header),
 ):
     try:
         deleted = delete_track(db, minio, MINIO_BUCKET_NAME, track_id)
@@ -179,6 +236,7 @@ def insert_track(
     author: Annotated[str | None, Form()] = None,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
+    _: bool = Depends(verify_admin_token_header),
 ):
     file_bytes = _read_upload_bytes(file)
 
