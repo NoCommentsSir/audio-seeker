@@ -18,6 +18,7 @@ from ..core.services import (
     delete_track,
     list_tracks,
     search_track,
+    get_track_by_id,
 )
 from ..core.admin_auth import (
     authenticate_admin,
@@ -185,7 +186,18 @@ def get_tracks(
     query: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    tracks, total = list_tracks(db, skip=skip, limit=limit, query=query)
+    try:
+        tracks, total = list_tracks(db, skip=skip, limit=limit, query=query)
+    except (TrackStorageError, TrackPersistenceError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+    except TrackServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
 
     return TrackListResponse(
         items=[_to_track_response(track) for track in tracks],
@@ -304,7 +316,6 @@ def stream_track(
     minio: Minio = Depends(get_minio_client),
 ):
     """Отдаёт аудиофайл из MinIO с поддержкой range-запросов (для перемотки)"""
-    from ..core.services import get_track_by_id
     
     track = get_track_by_id(db, track_id)
     print(track)
@@ -329,5 +340,5 @@ def stream_track(
                 "Content-Disposition": f"inline; filename={track.track_name}.mp3"
             }
         )
-    except S3Error as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"MinIO error: {str(e)}")
