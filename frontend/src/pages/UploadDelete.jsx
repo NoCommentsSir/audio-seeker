@@ -106,7 +106,6 @@ export default function UploadDelete() {
                 accept=".wav,.mp3,.flac"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 disabled={loading}
-                required
               />
             </div>
 
@@ -119,7 +118,6 @@ export default function UploadDelete() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter track name"
                 disabled={loading}
-                required
               />
             </div>
 

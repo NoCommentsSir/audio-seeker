@@ -150,15 +150,6 @@ def _build_search_response(outcome, mode: SearchMode) -> TrackSearchResponse:
         result=result,
     )
 
-
-api.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 @api.post("/api/admin/login", response_model=AdminTokenResponse)
 def admin_login(request: AdminLoginRequest):
     """Authenticate admin with password and return JWT token."""
@@ -318,7 +309,6 @@ def stream_track(
     """Отдаёт аудиофайл из MinIO с поддержкой range-запросов (для перемотки)"""
     
     track = get_track_by_id(db, track_id)
-    print(track)
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     
@@ -337,8 +327,11 @@ def stream_track(
             media_type=content_type,
             headers={
                 "Accept-Ranges": "bytes",
-                "Content-Disposition": f"inline; filename={track.track_name}.mp3"
+                "Content-Disposition": f"inline; filename={track.track_name}.wav",
             }
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"MinIO error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"MinIO error: {str(e)}"
+            ) from e

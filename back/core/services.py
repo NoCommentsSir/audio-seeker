@@ -21,7 +21,7 @@ from .Seeker import ProcessingDeadlineExceeded, create_fingerprints, create_map
 DEFAULT_MATCH_THRESHOLD = 500
 SEARCH_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
 SEARCH_MAX_DURATION_SECONDS = 10 * 60
-SEARCH_TIMEOUT_SECONDS = 30
+SEARCH_TIMEOUT_SECONDS = 120
 SUPPORTED_AUDIO_EXTENSIONS = {".wav"}
 IGNORED_STORAGE_DELETE_ERRORS = {"NoSuchBucket", "NoSuchKey", "NoSuchObject", "NoSuchVersion"}
 

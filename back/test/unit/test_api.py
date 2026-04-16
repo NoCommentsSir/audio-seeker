@@ -3,10 +3,10 @@ import pytest
 from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 from uuid import uuid4
-from back.app.api import api
+from back.app.api import api, get_minio_client, get_track_by_id, get_db
 from back.core.services import TrackValidationError
 from back.core.services import TrackStorageError
-from fastapi import HTTPException, params
+from fastapi import HTTPException
 
 TRACK_PATH = 'tracks'
 @pytest.fixture
@@ -28,28 +28,34 @@ def wav_file_bytes():
     
     with open(os.path.join(TRACK_PATH, track), "rb") as f:
         return f.read()
+
+def test_admin_login_invalid_credentials(client):
+    """Тестирует неуспешный вход администратора с неверным паролем"""
     
-mock_minio = Mock()
-mock_minio.get_object = Mock()
-mock_minio.put_object = Mock()
-mock_minio.remove_object = Mock()
-mock_minio.list_objects = Mock()
+    with patch('back.app.api.authenticate_admin', return_value=False) as mock_verify:
+            response = client.post(
+                "/api/admin/login",
+                json={"password": "wrong-password"}
+            )
 
-patcher = patch('back.db.database.minio_client', mock_minio)
-patcher.start()
+            assert response.status_code == 401
+            data = response.json()
+            assert data["detail"] == "Invalid admin password"
 
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_minio_patch():
-    """Останавливаем патч после всех тестов"""
-    yield
-    patcher.stop()
+def test_admin_login_success(client):
+    """Тестирует успешный вход администратора и получение токена"""
+    
+    with patch('back.app.api.authenticate_admin', return_value=True) as mock_verify, \
+         patch('back.app.api.create_admin_token', return_value="test-token-12345") as mock_create_token:
+            response = client.post(
+                "/api/admin/login",
+                json={"password": "correct-password"}
+            )
 
-@pytest.fixture
-def minio_mock():
-    """Предоставляет доступ к замокированному minio_client для настройки в тестах"""
-    mock_minio.reset_mock()  # Очищаем состояние перед каждым тестом
-    return mock_minio
-
+            assert response.status_code == 200
+            data = response.json()
+            assert data["access_token"] == "test-token-12345"
+            assert data["token_type"] == "bearer"
 
 def test_insert_track_success(client, mock_admin_token, wav_file_bytes):
     """Тестирует успешное создание трека"""
@@ -454,30 +460,32 @@ def test_search_track_storage_error(client):
         assert response.status_code == 500
         assert "Failed to search tracks" in response.json()["detail"]
 
-def test_stream_track_success(client, minio_mock):
+def test_stream_track_success(client):
     """Тестирует успешное стриминг аудиофайла"""
+
+    mock_minio_client = Mock()
+    mock_response = io.BytesIO(b"WAV audio data...")
     
-    with patch('back.app.api.get_track_by_id') as mock_get_track, \
-         patch('back.app.api.get_db') as mock_db:
-        
-        # Мокируем трек
-        mock_track = Mock()
-        mock_track.track_id = 42
-        mock_track.track_name = "Test Song"
-        mock_track.track_minio_key = "uuid-12345"
-        mock_get_track.return_value = mock_track
-        
-        # Настраиваем MinIO mock (уже глобально замокирован в conftest)
-        mock_response = io.BytesIO(b"WAV audio data...")
-        minio_mock.get_object.return_value = mock_response
+    mock_track = Mock()
+    mock_track.track_id = 42
+    mock_track.track_name = "Test Song"
+    mock_track.track_minio_key = "uuid-12345"
+
+    api.dependency_overrides[get_minio_client] = lambda: mock_minio_client
+    api.dependency_overrides[get_track_by_id] = lambda db, track_id: mock_track
+    api.dependency_overrides[get_db] = lambda: Mock() 
+
+    try:
+        mock_minio_client.get_object.return_value = mock_response
         
         response = client.get("/api/tracks/42/stream")
         
         assert response.status_code == 200
         assert "audio/wav" in response.headers["content-type"]
         assert response.content == b"WAV audio data..."
-
-
+    finally:
+        api.dependency_overrides.clear()
+        
 def test_stream_track_not_found(client):
     """Тестирует ошибку 404 при стриминге несуществующего трека"""
     
@@ -492,26 +500,27 @@ def test_stream_track_not_found(client):
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-
-def test_stream_track_minio_error(client, minio_mock):
+def test_stream_track_minio_error(client):
     """Тестирует ошибку при получении файла из MinIO (500)"""
+
+    mock_minio_client = Mock()
+    mock_minio_client.get_object.side_effect = Exception("MinIO error: Connection refused")
+
+    mock_track = Mock()
+    mock_track.track_id = 42
+    mock_track.track_name = "Test Song"
+    mock_track.track_minio_key = "uuid-12345"
     
-    with patch('back.app.api.get_track_by_id') as mock_get_track, \
-         patch('back.app.api.get_db') as mock_db:
-        
-        # Мокируем трек
-        mock_track = Mock()
-        mock_track.track_id = 42
-        mock_track.track_name = "Test Song"
-        mock_track.track_minio_key = "uuid-12345"
-        mock_get_track.return_value = mock_track
-        
-        # Настраиваем ошибку MinIO (мокирование уже глобально сделано в conftest)
-        minio_mock.get_object.side_effect = Exception("MinIO error: Connection refused")
-        
+    api.dependency_overrides[get_minio_client] = lambda: mock_minio_client
+    api.dependency_overrides[get_track_by_id] = lambda db, track_id: mock_track
+    api.dependency_overrides[get_db] = lambda: Mock() 
+
+    try:
         response = client.get("/api/tracks/42/stream")
         assert response.status_code == 500
         assert "MinIO error: Connection refused" in response.json()["detail"]
+    finally:
+        api.dependency_overrides.clear()
         
 if __name__ == '__main__':
     arr = os.listdir('tracks')

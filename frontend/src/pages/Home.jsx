@@ -100,16 +100,6 @@ export default function Home() {
         <button className="admin-link-btn" onClick={() => navigate('/admin/login')}>Admin</button>
       </div>
       
-      {/* <FileUploader onResult={setSearchResult} /> */}
-      
-      {searchResult && (
-        <div className="result">
-          <h4>✅ Найдено:</h4>
-          <p><strong>{searchResult.track_name}</strong> — {searchResult.track_author}</p>
-          <p>Совпадений: {searchResult.matches}</p>
-        </div>
-      )}
-      
       <hr />
       
       <TrackSearcher 
@@ -119,6 +109,7 @@ export default function Home() {
         isPlaying={isPlaying}
         playingTrackId={playingTrackId}
       />
+
       <TrackList 
         onTrackSelect={(track) => console.log('Selected:', track)}
         onPlayTrack={handleGlobalPlay}

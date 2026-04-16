@@ -210,48 +210,59 @@ export default function TrackSearcher({ onResult, onError, onPlayTrack, isPlayin
       )}
 
       {/* Результат */}
-        {result && (
-          <div className="track-result">
-            {/* 🚫 Случай: трек не найден */}
-            {result.message === "No result" ? (
-              <div className="no-result-card">
-                <div className="no-result-icon">🔍</div>
-                <h3>Треки не найдены</h3>
-                <p className="no-result-hint">
-                  Попробуйте записать фрагмент тише, без шумов, или загрузите другой файл
+        {/* Результат */}
+{result && (
+  <div className="track-result" data-testid="search-result">
+    {/* 🚫 Случай: трек не найден ИЛИ таймаут без результата */}
+        {!result.matched ? (
+          <div className="no-result-card" data-testid="no-result">
+            <div className="no-result-icon">🔍</div>
+            <h3>
+              {result.timed_out ? '⏱️ Поиск превысил время ожидания' : 'Треки не найдены'}
+            </h3>
+            <p className="no-result-hint">
+              {result.timed_out 
+                ? 'Попробуйте записать более чёткий фрагмент или проверить соединение' 
+                : 'Попробуйте записать фрагмент тише, без шумов, или загрузите другой файл'}
+            </p>
+          </div>
+        ) : (
+          /* ✅ Случай: трек найден (включая таймаут с лучшим совпадением) */
+          <div className="track-card" data-testid="track-found">
+            <div className="track-info">
+              <h3 className="track-title">
+                <span className="track-name" title={result.result?.track_name || 'Неизвестный трек'}>
+                  {result.result?.track_name || 'Неизвестный трек'}
+                </span>
+              </h3>
+              <span className="track-separator">•</span>
+              <p className="track-artist">
+                <span className="track-artist" title={result.result?.track_author || 'Неизвестный исполнитель'}>
+                  {result.result?.track_author || 'Неизвестный исполнитель'}
+                </span>
+              </p>
+              {/* Показываем предупреждение, если это результат с таймаутом */}
+              {result.timed_out && (
+                <p className="timeout-hint" data-testid="timeout-hint">
+                  ⚠️ Найдено лучшее совпадение за отведённое время
                 </p>
-              </div>
-            ) : (
-              /* ✅ Случай: трек найден */
-              <div className="track-card">
-                <div className="track-info">
-                  <h3 className="track-title">
-                    <span className="track-name" title={result.result?.track_name || 'Неизвестный трек'}>
-                      {result.result?.track_name || 'Неизвестный трек'}
-                    </span>
-                  </h3>
-                  <span className="track-separator">•</span>
-                  <p className="track-artist">
-                    <span className="track-artist" title={result.result?.track_author || 'Неизвестный исполнитель'}>
-                      {result.result?.track_author || 'Неизвестный исполнитель'}
-                    </span>
-                  </p>
-                </div>
-                
-                {/* Right: Actions */}
-                <div className="track-actions">
-                  <button 
-                    className="btn btn-ghost"
-                    onClick={(e) => onPlayTrack(result.result, e)}
-                    title={playingTrackId === result.result.track_id && isPlaying? 'Пауза' : 'Воспроизвести'}
-                  >
-                    {playingTrackId === result.result.track_id && isPlaying? '⏸️' : '▶️'}
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+            
+            <div className="track-actions">
+              <button 
+                className="btn btn-ghost"
+                onClick={(e) => result.result && onPlayTrack(result.result, e)}
+                title={playingTrackId === result.result?.track_id && isPlaying ? 'Пауза' : 'Воспроизвести'}
+                disabled={!result.result}
+              >
+                {playingTrackId === result.result?.track_id && isPlaying ? '⏸️' : '▶️'}
+              </button>
+            </div>
           </div>
         )}
-    </div>
+      </div>
+    )}
+   </div>
   );
 }
