@@ -33,16 +33,6 @@
 Для корректной работы необходимо в корне создать файл `.env` со следующим содержимым
 PG_USER, PG_PASSWORD, PG_DB, PG_HOST, POSTGRES_PORT, MINIO_API_PORT, MINIO_PORT, MINIO_USER, MINIO_PASSWORD, MINIO_HOST, MINIO_BUCKET_NAME
 
-### ToDo
-1. ~Сделать API методы. ~
-2. Сделать фронт часть  
-Допилить админ страницу с удалением и вставкой треков
-3. Поработать над авторизацией.
-- Админы: создают или удаляют треки
-- Все: Смотрят что есть в бд и ищут треки
-4. Обложить тестами back и front
-5. Обернуть back и front в Dockerfile и поправить docker-compose
-6. Сделать actions
 
 
 
