@@ -2,7 +2,7 @@ import os
 from typing import Annotated
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from minio import Minio
@@ -18,9 +18,23 @@ from ..core.services import (
     delete_track,
     list_tracks,
     search_track,
+    get_track_by_id,
+)
+from ..core.admin_auth import (
+    authenticate_admin,
+    create_admin_token,
+    verify_admin_token,
 )
 from ..db.database import MINIO_BUCKET_NAME, get_db, get_minio_client
-from .schemas import SearchMode, TrackListResponse, TrackResponse, TrackSearchResponse, TrackSearchResult
+from .schemas import (
+    SearchMode,
+    TrackListResponse,
+    TrackResponse,
+    TrackSearchResponse,
+    TrackSearchResult,
+    AdminLoginRequest,
+    AdminTokenResponse,
+)
 
 
 load_dotenv()
@@ -37,6 +51,34 @@ def _load_cors_origins() -> list[str]:
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+
+
+async def verify_admin_token_header(authorization: str | None = Header(None)) -> bool:
+    """Extract and verify admin token from Authorization header."""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing",
+        )
+    
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise ValueError("Invalid authorization scheme")
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+        )
+    
+    payload = verify_admin_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired admin token",
+        )
+    
+    return True
 
 
 api = FastAPI(title="Audioseeker API")
@@ -108,14 +150,20 @@ def _build_search_response(outcome, mode: SearchMode) -> TrackSearchResponse:
         result=result,
     )
 
-
-api.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@api.post("/api/admin/login", response_model=AdminTokenResponse)
+def admin_login(request: AdminLoginRequest):
+    """Authenticate admin with password and return JWT token."""
+    if not authenticate_admin(request.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin password",
+        )
+    
+    access_token = create_admin_token()
+    return AdminTokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+    )
 
 @api.get("/")
 def read_root():
@@ -129,7 +177,18 @@ def get_tracks(
     query: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    tracks, total = list_tracks(db, skip=skip, limit=limit, query=query)
+    try:
+        tracks, total = list_tracks(db, skip=skip, limit=limit, query=query)
+    except (TrackStorageError, TrackPersistenceError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+    except TrackServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
 
     return TrackListResponse(
         items=[_to_track_response(track) for track in tracks],
@@ -145,6 +204,7 @@ def remove_track(
     track_id: int,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
+    _: bool = Depends(verify_admin_token_header),
 ):
     try:
         deleted = delete_track(db, minio, MINIO_BUCKET_NAME, track_id)
@@ -179,6 +239,7 @@ def insert_track(
     author: Annotated[str | None, Form()] = None,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
+    _: bool = Depends(verify_admin_token_header),
 ):
     file_bytes = _read_upload_bytes(file)
 
@@ -246,10 +307,8 @@ def stream_track(
     minio: Minio = Depends(get_minio_client),
 ):
     """Отдаёт аудиофайл из MinIO с поддержкой range-запросов (для перемотки)"""
-    from ..core.services import get_track_by_id
     
     track = get_track_by_id(db, track_id)
-    print(track)
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     
@@ -268,8 +327,11 @@ def stream_track(
             media_type=content_type,
             headers={
                 "Accept-Ranges": "bytes",
-                "Content-Disposition": f"inline; filename={track.track_name}.mp3"
+                "Content-Disposition": f"inline; filename={track.track_name}.wav",
             }
         )
-    except S3Error as e:
-        raise HTTPException(status_code=500, detail=f"MinIO error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"MinIO error: {str(e)}"
+            ) from e

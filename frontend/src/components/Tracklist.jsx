@@ -24,7 +24,6 @@ export default function TrackList({ onTrackSelect, onPlayTrack, isPlaying, playi
       setHasMore(response.has_more ?? false);
     } catch (err) {
       console.error('Ошибка загрузки треков:', err);
-      showToast('Не удалось загрузить треки', 'error');
     } finally {
       setLoading(false);
     }
@@ -47,9 +46,8 @@ export default function TrackList({ onTrackSelect, onPlayTrack, isPlaying, playi
     try {
       await trackAPI.deleteTrack(trackId);
       loadTracks();
-      showToast('Трек удалён', 'success');
     } catch (err) {
-      showToast(err.message || 'Ошибка удаления', 'error');
+      console.error(err.message || 'Ошибка удаления');
     }
   };
 

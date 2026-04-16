@@ -1,5 +1,6 @@
 // src/pages/Home.jsx
 import { useState, useCallback, useRef, useEffect} from 'react';
+import { useNavigate } from 'react-router-dom';
 import TrackSearcher from '../components/TrackSearcher';
 import TrackList from '../components/Tracklist';
 import { trackAPI } from '../services/api';
@@ -7,6 +8,7 @@ import { trackAPI } from '../services/api';
 export default function Home() {
   const [searchResult, setSearchResult] = useState(null);
   const [currentTrack, setCurrentTrack] = useState(null);
+  const navigate = useNavigate();
 
   const handleResult = (track) => {
     console.log('Найден трек:', track);
@@ -93,17 +95,10 @@ export default function Home() {
 
   return (
     <div className="home">
-      <h1 className="logo-header"><span className="logo-block"><img src="/logo.svg" alt="PyShazam logo" className="logo-icon"/></span> PyShazam</h1>
-      
-      {/* <FileUploader onResult={setSearchResult} /> */}
-      
-      {searchResult && (
-        <div className="result">
-          <h4>✅ Найдено:</h4>
-          <p><strong>{searchResult.track_name}</strong> — {searchResult.track_author}</p>
-          <p>Совпадений: {searchResult.matches}</p>
-        </div>
-      )}
+      <div className="home-header">
+        <h1 className="logo-header"><span className="logo-block"><img src="/logo.svg" alt="PyShazam logo" className="logo-icon"/></span> PyShazam</h1>
+        <button className="admin-link-btn" onClick={() => navigate('/admin/login')}>Admin</button>
+      </div>
       
       <hr />
       
@@ -114,6 +109,7 @@ export default function Home() {
         isPlaying={isPlaying}
         playingTrackId={playingTrackId}
       />
+
       <TrackList 
         onTrackSelect={(track) => console.log('Selected:', track)}
         onPlayTrack={handleGlobalPlay}

@@ -39,3 +39,12 @@ class TrackSearchResponse(BaseModel):
     timed_out: bool = False
     message: str
     result: TrackSearchResult | None = None
+
+
+class AdminLoginRequest(BaseModel):
+    password: str
+
+
+class AdminTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

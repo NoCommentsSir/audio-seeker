@@ -1,3 +1,5 @@
+import { adminAuth } from './adminAuth.js';
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const trackAPI = {
@@ -10,8 +12,13 @@ export const trackAPI = {
   },
 
   deleteTrack: async (trackId) => {
-    const res = await fetch(`${API_BASE}/api/tracks/${trackId}`, { method: 'DELETE' });
+    const headers = adminAuth.getAuthHeader() || {};
+    const res = await fetch(`${API_BASE}/api/tracks/${trackId}`, { 
+      method: 'DELETE',
+      headers,
+    });
     if (!res.ok) {
+      if (res.status === 401) throw new Error('Unauthorized: Admin token required');
       if (res.status === 404) throw new Error('Track not found');
       throw new Error('Failed to delete track');
     }
@@ -24,11 +31,14 @@ export const trackAPI = {
     formData.append('name', name);
     if (author) formData.append('author', author);
     
+    const headers = adminAuth.getAuthHeader() || {};
     const res = await fetch(`${API_BASE}/api/tracks`, {
       method: 'POST',
+      headers,
       body: formData,
     });
     if (!res.ok) {
+      if (res.status === 401) throw new Error('Unauthorized: Admin token required');
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || 'Failed to upload track');
     }
