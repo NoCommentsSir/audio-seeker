@@ -26,8 +26,13 @@ PG_HOST = os.getenv("PG_HOST", "localhost")
 PG_DB = os.getenv("PG_DB", "postgres")
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "tracks")
 
+# Log MinIO connection details
+logger = logging.getLogger(__name__)
+minio_endpoint = f"{MINIO_HOST}:{MINIO_PORT}"
+logger.info(f"Initializing MinIO client with endpoint: {minio_endpoint}")
+
 minio_client = Minio(
-    endpoint=MINIO_HOST + ":" + MINIO_PORT,
+    endpoint=minio_endpoint,
     access_key=MINIO_USER,
     secret_key=MINIO_PASS,
     secure=False

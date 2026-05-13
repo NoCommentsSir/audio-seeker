@@ -21,12 +21,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password against PBKDF2 hash.
     Format: salt$hash (hex salt, base64 hash)
     """
+    
+    print(plain_password, hashed_password)
     if hashed_password is None:
         return False
     
     try:
-        salt_hex, stored_hash_b64 = hashed_password.split('$')
-        
+        salt_hex, stored_hash_b64 = hashed_password.split(':')
         # Compute hash with stored salt
         pwd_hash = hashlib.pbkdf2_hmac(
             'sha256',
@@ -35,7 +36,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
             100000
         )
         computed_hash_b64 = base64.b64encode(pwd_hash).decode()
-        
+        print(computed_hash_b64, plain_password, hashed_password)
         return computed_hash_b64 == stored_hash_b64
     except:
         return False
@@ -65,7 +66,15 @@ def verify_admin_token(token: str) -> dict | None:
 
 def authenticate_admin(password: str) -> bool:
     """Authenticate admin with password."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Authenticating password: '{password}'")
+    logger.info(f"ADMIN_PASSWORD_HASH: '{ADMIN_PASSWORD_HASH}'")
+    
     if ADMIN_PASSWORD_HASH is None:
-        # If no password hash set, allow any password (development mode)
+        logger.warning("ADMIN_PASSWORD_HASH is None - allowing any password")
         return True
-    return verify_password(password, ADMIN_PASSWORD_HASH)
+    
+    result = verify_password(password, ADMIN_PASSWORD_HASH)
+    logger.info(f"Password verification result: {result}")
+    return result

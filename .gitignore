@@ -7,3 +7,14 @@ __pycache__/
 .codex
 .python-version
 
+info.txt
+
+infra/terraform/terraform.tfvars
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/.terraform.lock.hcl
+
+terraform.rc
+
+infra/ansible/inventory.ini

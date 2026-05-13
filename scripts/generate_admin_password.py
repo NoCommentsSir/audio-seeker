@@ -24,9 +24,9 @@ def hash_password(password: str, salt: str = None) -> str:
         bytes.fromhex(salt),
         100000  # iterations
     )
-    
-    # Return format: salt$hash
-    return f"{salt}${base64.b64encode(pwd_hash).decode()}"
+    print(password)
+    # Return format: salt:hash. Avoid "$" because Docker Compose treats it as interpolation.
+    return f"{salt}:{base64.b64encode(pwd_hash).decode()}"
 
 def read_env():
     """Read .env file and return as dict"""

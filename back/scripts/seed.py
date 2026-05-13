@@ -82,6 +82,19 @@ def load_fingerprints_to_postgres(mcl:Minio, pgcl:Session, track_id:int, bucket_
     pgcl.commit()
 
 def load_test_songs_to_db(minio_client:Minio, postgres_client:Session, path:str, bucket_name:str):
+    
+    tracks_count = postgres_client.query(Track).count()
+    
+    try:
+        bucket_objects = list(minio_client.list_objects(bucket_name))
+        bucket_not_empty = len(bucket_objects) > 0
+    except:
+        bucket_not_empty = False
+    
+    if tracks_count > 0 and bucket_not_empty:
+        print("Database and bucket are not empty. Skipping load.")
+        return
+    
     arr = os.listdir(path)
     for track_name in arr:
         try:

@@ -19,6 +19,7 @@ from ..core.services import (
     list_tracks,
     search_track,
     get_track_by_id,
+    _build_object_name,
 )
 from ..core.admin_auth import (
     authenticate_admin,
@@ -307,6 +308,8 @@ def stream_track(
     minio: Minio = Depends(get_minio_client),
 ):
     """Отдаёт аудиофайл из MinIO с поддержкой range-запросов (для перемотки)"""
+    import logging
+    logger = logging.getLogger(__name__)
     
     track = get_track_by_id(db, track_id)
     if not track:
@@ -314,9 +317,12 @@ def stream_track(
     
     # Получаем объект из MinIO
     try:
+        object_name = _build_object_name(str(track.track_minio_key))
+        logger.info(f"Streaming track: track_id={track_id}, object_name={object_name}, bucket={MINIO_BUCKET_NAME}")
+        
         obj = minio.get_object(
             bucket_name=MINIO_BUCKET_NAME,
-            object_name=str(track.track_minio_key) + '.wav',
+            object_name=object_name,
         )
         
         # Определяем content-type по расширению
@@ -331,6 +337,7 @@ def stream_track(
             }
         )
     except Exception as e:
+        logger.error(f"Stream error for track_id={track_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail=f"MinIO error: {str(e)}"
