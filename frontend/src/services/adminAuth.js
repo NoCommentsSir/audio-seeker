@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL;
 const ADMIN_TOKEN_KEY = 'admin_token';
 
 export const adminAuth = {

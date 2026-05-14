@@ -11,8 +11,6 @@ services:
     volumes:
       - lab_pg_data:/var/lib/postgresql/data
       - ./db/create_schema.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - ${LAB_POSTGRES_PORT:-15432}:5432
     shm_size: 128mb
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
@@ -26,8 +24,7 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     ports:
-      - ${LAB_MINIO_API_PORT:-19000}:9000
-      - ${LAB_MINIO_CONSOLE_PORT:-19001}:9001
+      - ${LAB_MINIO_CONSOLE_PORT:-9001}:9001
     environment:
       - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
       - MINIO_ROOT_USER=${MINIO_USER}
@@ -40,7 +37,7 @@ services:
       retries: 3
 
   seed:
-    image: audio-seeker-backend:local
+    image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-backend:lab2
     command: ["python", "-m", "back.scripts.seed"]
     restart: "no"
     profiles: ["seed"]
@@ -59,12 +56,13 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
     depends_on:
       - lab-pg-db
       - lab-minio-db
 
   backend:
-    image: audio-seeker-backend:local
+    image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-backend:lab2
     restart: always
     ports:
       - ${API_PORT:-8000}:8000
@@ -84,16 +82,15 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
-
     depends_on:
       - lab-pg-db
       - lab-minio-db
 
   frontend:
-    image: audio-seeker-frontend:local
+    image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-frontend:lab2
     restart: always
     ports:
-      - ${FRONTEND_PORT:-3000}:80
+      - ${FRONTEND_PORT:-80}:80
     depends_on:
       - backend
 

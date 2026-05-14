@@ -1,5 +1,5 @@
 ---
-- name: "Install Docker to VM"
+- name: "Install Docker and configure Yandex Container Registry access"
   hosts: web
   become: true
 
@@ -16,13 +16,13 @@
           - gnupg
           - lsb-release
         state: present
-    
+
     - name: Create apt keyrings directory
       file:
         path: /etc/apt/keyrings
         state: directory
         mode: "0755"
-    
+
     - name: Add Docker GPG key
       get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
@@ -34,6 +34,10 @@
         repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
+
+    - name: Update apt cache after adding Docker repository
+      apt:
+        update_cache: true
 
     - name: Install Docker packages
       apt:
@@ -57,6 +61,26 @@
         groups: docker
         append: true
 
+    - name: Remove old Docker config for root
+      file:
+        path: /root/.docker/config.json
+        state: absent
+
+    - name: Create Docker config directory for root
+      file:
+        path: /root/.docker
+        state: directory
+        mode: "0700"
+
+    - name: Docker login to Yandex Container Registry using VM service account
+      shell: |
+        set -e
+        TOKEN=$(curl -s -H "Metadata-Flavor: Google" \
+          http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
+          | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+        echo "$TOKEN" | docker login --username iam --password-stdin cr.yandex
+      no_log: true
+
     - name: Check Docker version
       command: docker --version
       register: docker_version
@@ -75,3 +99,81 @@
       debug:
         var: docker_compose_version.stdout
 
+    - name: Test pull access to backend image
+      command: docker pull cr.yandex/{{ registry_id }}/audio-seeker-backend:lab2
+      register: backend_pull_result
+      changed_when: "'Downloaded newer image' in backend_pull_result.stdout or 'Pull complete' in backend_pull_result.stdout"
+
+    - name: Show backend pull result
+      debug:
+        var: backend_pull_result.stdout
+
+    - name: Test pull access to frontend image
+      command: docker pull cr.yandex/{{ registry_id }}/audio-seeker-frontend:lab2
+      register: frontend_pull_result
+      changed_when: "'Downloaded newer image' in frontend_pull_result.stdout or 'Pull complete' in frontend_pull_result.stdout"
+
+    - name: Show frontend pull result
+      debug:
+        var: frontend_pull_result.stdout
+
+    - name: Create project folder
+      file:
+        path: /opt/audio-seeker
+        owner: ubuntu
+        group: ubuntu
+        state: directory
+        mode: "0755"
+
+    - name: Create db folder
+      file:
+        path: /opt/audio-seeker/db
+        owner: ubuntu
+        group: ubuntu
+        state: directory
+        mode: "0755"
+    
+    - name: Copy docker-compose cloud
+      ansible.builtin.copy:
+        src: files/docker-compose.cloud.yml
+        dest: /opt/audio-seeker/docker-compose.cloud.yml
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy .env.cloud
+      ansible.builtin.copy:
+        src: files/.env.cloud
+        dest: /opt/audio-seeker/.env.cloud
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+
+    - name: Copy create_schema.sql
+      ansible.builtin.copy:
+        src: ../../db/create_schema.sql
+        dest: /opt/audio-seeker/db/create_schema.sql
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Refresh docker images
+      command: docker compose --env-file .env.cloud -f docker-compose.cloud.yml pull
+      args:
+        chdir: /opt/audio-seeker
+
+    - name: Start docker compose
+      command: docker compose --env-file .env.cloud -f docker-compose.cloud.yml up -d
+      args:
+        chdir: /opt/audio-seeker
+
+    - name: Check state
+      command: docker compose --env-file .env.cloud -f docker-compose.cloud.yml ps
+      args:
+        chdir: /opt/audio-seeker
+      register: compose_state
+      changed_when: false
+
+    - name: Show compose state
+      debug:
+        var: compose_state.stdout_lines

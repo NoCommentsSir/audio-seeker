@@ -3,6 +3,7 @@ dev/
 __pycache__/
 
 .env
+.env.cloud
 .misc/
 .codex
 .python-version
@@ -18,3 +19,4 @@ infra/terraform/.terraform.lock.hcl
 terraform.rc
 
 infra/ansible/inventory.ini
+infra/ansible/group_vars/all.yml

@@ -15,7 +15,7 @@ provider "yandex" {
 }
 
 data "yandex_vpc_network" "audio_network" {
-    name = "default"
+  name = "default"
 }
 
 resource "yandex_vpc_subnet" "audio_subnet" {
@@ -73,10 +73,31 @@ output "ubuntu_id" {
   value = data.yandex_compute_image.ubuntu.id
 }
 
+resource "yandex_container_registry" "audio_registry" {
+  name = "audio-seeker-registry"
+}
+
+resource "yandex_iam_service_account" "docker_puller_sa" {
+  name        = "audio-seeker-docker-puller"
+  description = "Service account for pulling Docker images from Container Registry"
+}
+
+resource "yandex_container_registry_iam_binding" "audio_registry_puller" {
+  registry_id = yandex_container_registry.audio_registry.id
+  role        = "container-registry.images.puller"
+
+  members = [
+    "serviceAccount:${yandex_iam_service_account.docker_puller_sa.id}"
+  ]
+}
+
 resource "yandex_compute_instance" "audio_vm" {
   name        = var.vm_name
   platform_id = "standard-v3"
   zone        = var.zone
+
+  service_account_id        = yandex_iam_service_account.docker_puller_sa.id
+  allow_stopping_for_update = true
 
   resources {
     cores  = 2
@@ -101,8 +122,4 @@ resource "yandex_compute_instance" "audio_vm" {
     ssh-keys = "ubuntu:${file(var.ssh_public_key_path)}"
   }
 
-}
-
-resource "yandex_container_registry" "audio_registry" {
-    name = "audio-seeker-registry"
 }
