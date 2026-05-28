@@ -121,7 +121,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Docker regitry login
+    - name: Docker registry login
       uses: yc-actions/yc-cr-login@v3
       with: 
         yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS}}
