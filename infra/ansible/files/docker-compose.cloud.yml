@@ -58,8 +58,10 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
     depends_on:
-      - lab-pg-db
-      - lab-minio-db
+      lab-pg-db:
+        condition: service_healthy 
+      lab-minio-db:
+        condition: service_healthy 
 
   backend:
     image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-backend:lab2
@@ -83,8 +85,10 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
     depends_on:
-      - lab-pg-db
-      - lab-minio-db
+      lab-pg-db:
+        condition: service_healthy 
+      lab-minio-db:
+        condition: service_healthy 
 
   frontend:
     image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-frontend:lab2

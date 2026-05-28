@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: audioseeker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      imagePullSecrets:
+        - name: yc-registry-secret
+      containers:
+        - name: frontend
+          image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-frontend:lab2
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80

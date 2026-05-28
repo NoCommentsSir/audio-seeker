@@ -20,3 +20,9 @@ terraform.rc
 
 infra/ansible/inventory.ini
 infra/ansible/group_vars/all.yml
+
+mistakes.txt
+instr.txt
+
+k8s/**/secrets.yaml
+k8s/**/secret.yaml

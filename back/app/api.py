@@ -3,6 +3,7 @@ from typing import Annotated
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status, Header
+from prometheus_fastapi_instrumentator import Instrumentator
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from minio import Minio
@@ -83,6 +84,7 @@ async def verify_admin_token_header(authorization: str | None = Header(None)) ->
 
 
 api = FastAPI(title="Audioseeker API")
+Instrumentator().instrument(api).expose(api)
 api.add_middleware(
     CORSMiddleware,
     allow_origins=_load_cors_origins(),

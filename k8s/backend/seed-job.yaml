@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-seed
+  namespace: audioseeker
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: backend-seed
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: yc-registry-secret
+      containers:
+        - name: backend-seed
+          image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-backend:lab2
+          imagePullPolicy: Always
+          command: ["python", "-m", "back.scripts.seed"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret

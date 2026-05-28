@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: audioseeker
+data:
+  PG_HOST: postgres-service
+  POSTGRES_PORT: "5432"
+  PG_DB: tracks
+
+  MINIO_HOST: minio-service
+  MINIO_PORT: "9000"
+  MINIO_API_PORT: "9000"
+  MINIO_BUCKET_NAME: track-list
