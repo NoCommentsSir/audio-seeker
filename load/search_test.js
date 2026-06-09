@@ -20,7 +20,7 @@ export default function () {
   };
   
   const res = http.post(
-    "http://127.0.0.1:59227/api/tracks/search", 
+    "http://127.0.0.1:63669/api/tracks/search", 
     data,
     {
       timeout: "120s",
