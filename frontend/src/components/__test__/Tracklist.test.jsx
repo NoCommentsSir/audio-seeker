@@ -278,6 +278,95 @@ describe('TrackList Component', () => {
         });
     });
 
+     test('отображает информацию о странице', async () => {
+        trackAPI.getTracks.mockResolvedValue({
+            items: mockTracks,
+            total: 3,
+            has_more: false,
+        });
+
+        render(
+            <TrackList
+                onTrackSelect={vi.fn()}
+                onPlayTrack={vi.fn()}
+                isPlaying={false}
+                playingTrackId={null}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/3 треков/)).toBeInTheDocument();
+            expect(screen.getByText(/стр\. 1/i)).toBeInTheDocument();
+        });
+    });
+
+     test('отображает информацию о странице', async () => {
+        trackAPI.getTracks.mockResolvedValue({
+            items: mockTracks,
+            total: 3,
+            has_more: false,
+        });
+
+        render(
+            <TrackList
+                onTrackSelect={vi.fn()}
+                onPlayTrack={vi.fn()}
+                isPlaying={false}
+                playingTrackId={null}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/3 треков/)).toBeInTheDocument();
+            expect(screen.getByText(/стр\. 1/i)).toBeInTheDocument();
+        });
+    });
+
+
+     test('отображает информацию о странице', async () => {
+        trackAPI.getTracks.mockResolvedValue({
+            items: mockTracks,
+            total: 3,
+            has_more: false,
+        });
+
+        render(
+            <TrackList
+                onTrackSelect={vi.fn()}
+                onPlayTrack={vi.fn()}
+                isPlaying={false}
+                playingTrackId={null}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/3 треков/)).toBeInTheDocument();
+            expect(screen.getByText(/стр\. 1/i)).toBeInTheDocument();
+        });
+    });
+
+     test('отображает информацию о странице', async () => {
+        trackAPI.getTracks.mockResolvedValue({
+            items: mockTracks,
+            total: 3,
+            has_more: false,
+        });
+
+        render(
+            <TrackList
+                onTrackSelect={vi.fn()}
+                onPlayTrack={vi.fn()}
+                isPlaying={false}
+                playingTrackId={null}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/3 треков/)).toBeInTheDocument();
+            expect(screen.getByText(/стр\. 1/i)).toBeInTheDocument();
+        });
+    });
+
     test('отображает пагинацию при наличии нескольких страниц', async () => {
         const tracks20 = Array.from({ length: 20 }, (_, i) => ({
             track_id: i + 1,
