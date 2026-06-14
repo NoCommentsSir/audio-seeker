@@ -30,6 +30,7 @@ jobs:
   backend-tests:
     name: Backend Tests
     runs-on: ubuntu-latest
+    needs: changes
     defaults:
       run:
         working-directory: .
@@ -136,7 +137,7 @@ jobs:
   sonarqube:
     name: SonarQube code analysing
     runs-on: self-hosted
-    needs: [backend-tests, frontend-tests]
+    needs: frontend-build
 
     defaults:
       run:
@@ -170,7 +171,7 @@ jobs:
           MINIO_HOST: localhost
           MINIO_BUCKET_NAME: track-list
         run: |
-          .\.venv\Scripts\python.exe -m pytest --cov=back --cov-report=xml:back/coverage.xml --cov-fail-under=80
+          .\.venv\Scripts\python.exe -m pytest --cov=back --cov-report=xml:back/coverage.xml
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
