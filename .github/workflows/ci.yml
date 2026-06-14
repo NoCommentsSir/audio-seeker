@@ -195,6 +195,9 @@ jobs:
           sonar-scanner `
             "-Dsonar.host.url=http://localhost:9500" `
             "-Dsonar.token=$env:SONAR_TOKEN"
+            "-Dsonar.projectVersion=${{ github.run_number }}" `
+            "-Dsonar.analysis.buildNumber=${{ github.run_number }}" `
+            "-Dsonar.analysis.commit=${{ github.sha }}"
             
   docker-build:
     name: Docker build
