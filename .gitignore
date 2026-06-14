@@ -27,3 +27,7 @@ instr.txt
 k8s/**/secrets.yaml
 k8s/**/secret.yaml
 !frontend/.env
+back/coverage.xml
+frontend/coverage/
+.coverage
+.scannerwork/

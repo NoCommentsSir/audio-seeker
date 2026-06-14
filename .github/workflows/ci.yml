@@ -133,10 +133,72 @@ jobs:
       - name: Run tests
         run: npm run build
 
+  sonarqube:
+    name: SonarQube code analysing
+    runs-on: self-hosted
+    needs: [backend-tests, frontend-tests]
+
+    defaults:
+      run:
+        shell: powershell
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install backend dependencies
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+          .\.venv\Scripts\python.exe -m pip install pytest pytest-cov
+
+      - name: Generate backend coverage
+        env:
+          SECRET_KEY: test-secret-key
+          ADMIN_PASSWORD_HASH: ""
+          MINIO_API_PORT: 9000
+          MINIO_PORT: 9001
+          MINIO_USER: test
+          MINIO_PASSWORD: test
+          MINIO_HOST: localhost
+          MINIO_BUCKET_NAME: track-list
+        run: |
+          .\.venv\Scripts\python.exe -m pytest --cov=back --cov-report=xml:back/coverage.xml --cov-fail-under=80
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Generate frontend coverage
+        working-directory: frontend
+        run: npm run test:coverage
+
+      - name: Run SonarQube scanner
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner `
+            "-Dsonar.host.url=http://localhost:9500" `
+            "-Dsonar.token=$env:SONAR_TOKEN"
+            
   docker-build:
     name: Docker build
     runs-on: ubuntu-latest
-    needs: [frontend-build, changes]
+    needs: [sonarqube, changes]
     if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
     steps:
     - name: Checkout repo

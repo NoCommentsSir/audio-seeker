@@ -44,7 +44,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_admin_token(admin_id: str = "admin") -> str:
     """Create JWT token for admin."""
-    expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+    expire = datetime.now() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     payload = {
         "sub": admin_id,
         "is_admin": True,

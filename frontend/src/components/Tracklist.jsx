@@ -1,11 +1,17 @@
 // src/components/TrackList.jsx
 import { useEffect, useState, useCallback, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { trackAPI } from '../services/api'; // ✅ уже импортировано
 import '../App.css';
 
 const ITEMS_PER_PAGE = 20;
 
-export default function TrackList({ onTrackSelect, onPlayTrack, isPlaying, playingTrackId }) {
+export default function TrackList({ 
+  onTrackSelect,
+  onPlayTrack,
+  isPlaying = false,
+  playingTrackId = null,
+}) {
   const [tracks, setTracks] = useState([]);
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,50 +87,55 @@ export default function TrackList({ onTrackSelect, onPlayTrack, isPlaying, playi
 
       {/* Tracks List */}
       <div className="glass track-list-items">
-        {tracks.map(track => (
-          <div
-            key={track.track_id}
-            className="track-item glass"
+        {tracks.map((track) => (
+        <div
+          key={track.track_id}
+          className="track-item glass"
+        >
+          <button
+            type="button"
+            className="track-item-left track-item-select"
             onClick={() => onTrackSelect?.(track)}
           >
-            {/* Left: Icon + Name + Author */}
-            <div className="track-item-left">
-              <div className="track-icon animate-float">🎧</div>
-              
-              <div className="track-info">
-                <span className="track-name" title={track.track_name}>
-                  {track.track_name}
-                </span>
-                
-                {track.track_author && (
-                  <>
-                    <span className="track-separator">•</span>
-                    <span className="track-author" title={track.track_author}>
-                      {track.track_author}
-                    </span>
-                  </>
-                )}
-              </div>
+            <div className="track-icon animate-float">🎧</div>
+
+            <div className="track-info">
+              <span className="track-name" title={track.track_name}>
+                {track.track_name}
+              </span>
+
+              {track.track_author && (
+                <>
+                  <span className="track-separator">•</span>
+                  <span className="track-author" title={track.track_author}>
+                    {track.track_author}
+                  </span>
+                </>
+              )}
             </div>
-            
-            {/* Right: Actions */}
-            <div className="track-actions">
-              <button 
-                className="btn btn-ghost"
-                onClick={(e) => onPlayTrack(track, e)}
-                title={playingTrackId === track.track_id && isPlaying? 'Пауза' : 'Воспроизвести'}
-              >
-                {playingTrackId === track.track_id && isPlaying? '⏸️' : '▶️'}
-              </button>
-            </div>
+          </button>
+
+          <div className="track-actions">
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlayTrack(track, e);
+              }}
+              title={playingTrackId === track.track_id && isPlaying ? 'Пауза' : 'Воспроизвести'}
+            >
+              {playingTrackId === track.track_id && isPlaying ? '⏸️' : '▶️'}
+            </button>
           </div>
-        ))}
+        </div>
+      ))}
 
         {/* Loading */}
         {loading && (
           <div className="track-list-loading">
             <div className="waveform">
-              {[...Array(5)].map((_, i) => (
+              {Array.from({ length: 5 }, (_, i) => (
                 <div key={i} className="waveform-bar"></div>
               ))}
             </div>
@@ -170,6 +181,16 @@ export default function TrackList({ onTrackSelect, onPlayTrack, isPlaying, playi
     </div>
   );
 }
+
+TrackList.propTypes = {
+  onTrackSelect: PropTypes.func,
+  onPlayTrack: PropTypes.func.isRequired,
+  isPlaying: PropTypes.bool,
+  playingTrackId: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.number,
+  ]),
+};
 
 // 🍞 Toast helper
 const showToast = (message, type = 'info') => {

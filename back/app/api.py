@@ -55,7 +55,7 @@ def _load_cors_origins() -> list[str]:
     ]
 
 
-async def verify_admin_token_header(authorization: str | None = Header(None)) -> bool:
+def verify_admin_token_header(authorization: str | None = Header(None)) -> bool:
     """Extract and verify admin token from Authorization header."""
     if not authorization:
         raise HTTPException(
