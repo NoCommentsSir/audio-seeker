@@ -17,7 +17,7 @@ spec:
         - name: yc-registry-secret
       containers:
         - name: frontend
-          image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-frontend:lab2
+          image: cr.yandex/crp72ttqt6p7du7uvurg/audio-seeker-frontend:lab3
           imagePullPolicy: Always
           ports:
             - containerPort: 80
