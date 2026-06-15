@@ -12,6 +12,7 @@ spec:
     path: k8s
     directory:
       recurse: true
+      exclude: "{monitoring/**}"
 
   destination:
     server: https://kubernetes.default.svc
