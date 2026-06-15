@@ -260,7 +260,7 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           MESSAGE="Status of CI for $REPO on branch $BRANCH%0A"
-          MESSAGE="{$MESSAGE}Commit: ${COMMIT:0:7}%0A%0A"
+          MESSAGE="${MESSAGE}Commit: $COMMIT%0A%0A"
           MESSAGE="${MESSAGE}Backend tests: $BACKEND_TESTS%0A"
           MESSAGE="${MESSAGE}Backend build: $BACKEND_BUILD%0A"
           MESSAGE="${MESSAGE}Frontend tests: $FRONTEND_TESTS%0A"
